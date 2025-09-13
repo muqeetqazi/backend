@@ -13,7 +13,14 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
 # Allowed hosts (DigitalOcean will inject your app hostname or you can set your custom domain)
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+import os
+
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "protected-vision-soh4o.ondigitalocean.app",  # your live domain
+]
+
 
 # Application definition
 INSTALLED_APPS = [
