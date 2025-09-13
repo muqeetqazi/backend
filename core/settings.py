@@ -20,7 +20,9 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
     "protected-vision-soh4o.ondigitalocean.app",  # your live domain
 ]
-
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': False,  # disable login button
+}
 
 # Application definition
 INSTALLED_APPS = [
