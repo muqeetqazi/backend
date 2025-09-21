@@ -8,6 +8,7 @@ from .serializers import (
     DocumentWithScansSerializer,
     DocumentScanSerializer
 )
+from users.utils import increment_documents_saved, increment_documents_processed
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -42,6 +43,25 @@ class DocumentViewSet(viewsets.ModelViewSet):
         if self.action == 'retrieve':
             return DocumentWithScansSerializer
         return self.serializer_class
+    
+    def perform_create(self, serializer):
+        """
+        Override to track document upload
+        """
+        document = serializer.save(user=self.request.user)
+        # Increment documents saved counter
+        increment_documents_saved(self.request.user)
+    
+    def perform_update(self, serializer):
+        """
+        Override to track document processing
+        """
+        old_processed = self.get_object().processed
+        document = serializer.save()
+        
+        # If document was just processed (changed from False to True)
+        if not old_processed and document.processed:
+            increment_documents_processed(self.request.user)
     
     @action(detail=True, methods=['get'])
     def scans(self, request, pk=None):

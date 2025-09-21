@@ -44,6 +44,7 @@ class UserSerializer(serializers.ModelSerializer):
     User serializer for profile information
     """
     preferences = UserPreferenceSerializer(read_only=True)
+    detection_accuracy = serializers.ReadOnlyField()
     
     class Meta:
         model = User
@@ -54,9 +55,16 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 
             'last_name', 
             'profile_image',
-            'preferences'
+            'preferences',
+            'total_documents_saved',
+            'total_documents_processed',
+            'total_documents_shared',
+            'total_sensitive_items_detected',
+            'total_non_detected_items',
+            'detection_accuracy'
         ]
-        read_only_fields = ['id', 'email']
+        read_only_fields = ['id', 'email', 'total_documents_saved', 'total_documents_processed', 
+                           'total_documents_shared', 'total_sensitive_items_detected', 'total_non_detected_items']
 
 
 class RegisterSerializer(serializers.ModelSerializer):

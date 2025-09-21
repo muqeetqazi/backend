@@ -10,12 +10,28 @@ class User(AbstractUser):
     profile_image = models.ImageField(upload_to='profile_images/', null=True, blank=True)
     email = models.EmailField(_("email address"), unique=True)
     
+    # User activity tracking fields
+    total_documents_saved = models.PositiveIntegerField(default=0, help_text="Total documents uploaded/saved")
+    total_documents_processed = models.PositiveIntegerField(default=0, help_text="Total documents processed")
+    total_documents_shared = models.PositiveIntegerField(default=0, help_text="Total documents shared")
+    total_sensitive_items_detected = models.PositiveIntegerField(default=0, help_text="Total sensitive items found")
+    total_non_detected_items = models.PositiveIntegerField(default=0, help_text="Total items that were not detected as sensitive")
+    
     # Override the username field to use email
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
     
     def __str__(self):
         return self.email
+    
+    def get_detection_accuracy(self):
+        """
+        Calculate detection accuracy percentage
+        """
+        total_items = self.total_sensitive_items_detected + self.total_non_detected_items
+        if total_items == 0:
+            return 0
+        return (self.total_sensitive_items_detected / total_items) * 100
     
     class Meta:
         verbose_name = _("User")
