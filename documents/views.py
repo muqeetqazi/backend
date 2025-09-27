@@ -2,13 +2,13 @@ from rest_framework import viewsets, mixins, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import F
 from .models import Document, DocumentScan
 from .serializers import (
     DocumentSerializer,
     DocumentWithScansSerializer,
     DocumentScanSerializer
 )
-from users.services.stats import UserStatsService
 
 
 class DocumentViewSet(viewsets.ModelViewSet):
@@ -49,28 +49,29 @@ class DocumentViewSet(viewsets.ModelViewSet):
         Override to track document upload
         """
         document = serializer.save(user=self.request.user)
-        # Increment documents saved counter
-        UserStatsService.increment_documents_saved(self.request.user)
+        # Increment documents saved counter using F() expression for atomic update
+        user = self.request.user
+        user.total_documents_saved = F('total_documents_saved') + 1
+        user.save(update_fields=["total_documents_saved"])
     
     def perform_update(self, serializer):
         """
         Override to track document processing
         """
         # Get the current state before update
-        old_processed = self.get_object().processed
-        
-        # Save the document with new data
-        document = serializer.save()
-        
-        # Check if processed status changed from False to True
-        if not old_processed and document.processed:
-            # Increment the documents processed counter
-            UserStatsService.increment_documents_processed(self.request.user)
-            print(f"✅ Document {document.id} marked as processed for user {self.request.user.id}")
-        elif old_processed and not document.processed:
-            print(f"⚠️ Document {document.id} marked as unprocessed for user {self.request.user.id}")
+        prev_instance = self.get_object()
+        instance = serializer.save()
+        user = self.request.user
+
+        # If the processed field changes from False → True, increment counter
+        if not prev_instance.processed and instance.processed:
+            user.total_documents_processed = F('total_documents_processed') + 1
+            user.save(update_fields=["total_documents_processed"])
+            print(f"✅ Document {instance.id} marked as processed for user {user.id}")
+        elif prev_instance.processed and not instance.processed:
+            print(f"⚠️ Document {instance.id} marked as unprocessed for user {user.id}")
         else:
-            print(f"ℹ️ Document {document.id} processed status unchanged: {document.processed}")
+            print(f"ℹ️ Document {instance.id} processed status unchanged: {instance.processed}")
     
     @action(detail=True, methods=['get'])
     def scans(self, request, pk=None):

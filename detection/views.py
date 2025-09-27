@@ -2,6 +2,7 @@ from rest_framework import viewsets, mixins, permissions, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import F
 from .models import DetectionModel, DetectionJob
 from .serializers import (
     DetectionModelSerializer,
@@ -10,7 +11,6 @@ from .serializers import (
     DetectionResultSerializer
 )
 from .detection_service import DetectionService
-from users.services.stats import UserStatsService
 
 
 class DetectionModelViewSet(mixins.ListModelMixin,
@@ -81,13 +81,20 @@ class AnalysisViewSet(viewsets.ViewSet):
             if result_serializer.is_valid():
                 scan = result_serializer.save()
                 
-                # Track sensitive items detected
+                # Track sensitive items detected using F() expressions for atomic updates
+                user = request.user
                 sensitive_count = scan.sensitive_information.count()
+                
                 if sensitive_count > 0:
-                    UserStatsService.increment_sensitive_items_detected(request.user, sensitive_count)
+                    # Increment sensitive items detected counter
+                    user.total_sensitive_items_detected = F('total_sensitive_items_detected') + sensitive_count
+                    user.save(update_fields=["total_sensitive_items_detected"])
+                    print(f"✅ Found {sensitive_count} sensitive items for user {user.id}")
                 else:
                     # If no sensitive items detected, increment non-detected counter
-                    UserStatsService.increment_non_detected_items(request.user, 1)
+                    user.total_non_detected_items = F('total_non_detected_items') + 1
+                    user.save(update_fields=["total_non_detected_items"])
+                    print(f"ℹ️ No sensitive items found for user {user.id}")
                 
                 # Return the scan results
                 response_data = {
