@@ -10,7 +10,7 @@ from .serializers import (
     DetectionResultSerializer
 )
 from .detection_service import DetectionService
-from users.utils import increment_sensitive_items_detected, increment_non_detected_items
+from users.services.stats import UserStatsService
 
 
 class DetectionModelViewSet(mixins.ListModelMixin,
@@ -84,10 +84,10 @@ class AnalysisViewSet(viewsets.ViewSet):
                 # Track sensitive items detected
                 sensitive_count = scan.sensitive_information.count()
                 if sensitive_count > 0:
-                    increment_sensitive_items_detected(request.user, sensitive_count)
+                    UserStatsService.increment_sensitive_items_detected(request.user, sensitive_count)
                 else:
                     # If no sensitive items detected, increment non-detected counter
-                    increment_non_detected_items(request.user, 1)
+                    UserStatsService.increment_non_detected_items(request.user, 1)
                 
                 # Return the scan results
                 response_data = {
