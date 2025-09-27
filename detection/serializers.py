@@ -109,4 +109,65 @@ class DetectionResultSerializer(serializers.Serializer):
         document.processed = True
         document.save()
         
+        return scan
+
+
+class MLAnalysisPayloadSerializer(serializers.Serializer):
+    """
+    Serializer for ML model detection payloads
+    """
+    document_id = serializers.IntegerField()
+    detection_types = serializers.ListField(child=serializers.CharField())
+    sensitive_items_count = serializers.IntegerField()
+    processing_time = serializers.FloatField()
+    source = serializers.CharField()
+    sensitive_items = SensitiveItemSerializer(many=True, required=False)
+    
+    def validate_source(self, value):
+        if value != "ml_model":
+            raise serializers.ValidationError("Source must be 'ml_model' for ML payloads")
+        return value
+    
+    def create_ml_analysis_result(self, validated_data):
+        """
+        Create DocumentScan and SensitiveInformation records from ML payload
+        """
+        document_id = validated_data['document_id']
+        sensitive_items_count = validated_data['sensitive_items_count']
+        processing_time = validated_data['processing_time']
+        sensitive_items = validated_data.get('sensitive_items', [])
+        
+        # Get the document
+        document = Document.objects.get(id=document_id)
+        
+        # Determine risk level based on sensitive items count
+        if sensitive_items_count == 0:
+            risk_level = 'low'
+        elif sensitive_items_count <= 2:
+            risk_level = 'medium'
+        else:
+            risk_level = 'high'
+        
+        # Create the scan record
+        scan = DocumentScan.objects.create(
+            document=document,
+            risk_level=risk_level,
+            processing_time=processing_time
+        )
+        
+        # Create sensitive information records if provided
+        for item in sensitive_items:
+            SensitiveInformation.objects.create(
+                scan=scan,
+                type=item.get('type', 'other'),
+                confidence=item.get('confidence', 0.0),
+                location=item.get('location'),
+                count=item.get('count', 1),
+                redacted=False
+            )
+        
+        # Mark the document as processed
+        document.processed = True
+        document.save()
+        
         return scan 

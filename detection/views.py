@@ -8,7 +8,8 @@ from .serializers import (
     DetectionModelSerializer,
     DetectionJobSerializer,
     AnalyzeDocumentSerializer,
-    DetectionResultSerializer
+    DetectionResultSerializer,
+    MLAnalysisPayloadSerializer
 )
 from .detection_service import DetectionService
 
@@ -57,6 +58,63 @@ class AnalysisViewSet(viewsets.ViewSet):
     def create(self, request):
         """
         Analyze a document for sensitive information
+        """
+        # Check if this is an ML model payload
+        if 'source' in request.data and request.data['source'] == 'ml_model':
+            return self._handle_ml_payload(request)
+        else:
+            return self._handle_backend_analysis(request)
+    
+    def _handle_ml_payload(self, request):
+        """
+        Handle ML model detection payload
+        """
+        serializer = MLAnalysisPayloadSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            try:
+                # Create analysis result from ML payload
+                scan = serializer.create_ml_analysis_result(serializer.validated_data)
+                
+                # Update user statistics using F() expressions
+                user = request.user
+                sensitive_count = serializer.validated_data['sensitive_items_count']
+                
+                if sensitive_count > 0:
+                    user.total_sensitive_items_detected = F('total_sensitive_items_detected') + sensitive_count
+                    user.save(update_fields=["total_sensitive_items_detected"])
+                else:
+                    user.total_non_detected_items = F('total_non_detected_items') + 1
+                    user.save(update_fields=["total_non_detected_items"])
+                
+                # Log the ML detection stats
+                print(f"✅ ML detection stats recorded: document_id={scan.document.id}, sensitive_items_count={sensitive_count}")
+                
+                # Return success acknowledgment
+                response_data = {
+                    'document_id': scan.document.id,
+                    'scan_id': scan.id,
+                    'scan_date': scan.scan_date.isoformat(),
+                    'sensitive_items_count': sensitive_count,
+                    'source': 'ml_model',
+                    'status': 'recorded'
+                }
+                return Response(response_data, status=status.HTTP_201_CREATED)
+                
+            except Exception as e:
+                return Response(
+                    {'error': f'Failed to process ML payload: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _handle_backend_analysis(self, request):
+        """
+        Handle backend document analysis (original logic)
         """
         serializer = AnalyzeDocumentSerializer(
             data=request.data,
