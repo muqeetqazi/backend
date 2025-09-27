@@ -63,7 +63,7 @@ class DocumentSerializer(serializers.ModelSerializer):
             'created_at', 
             'updated_at'
         ]
-        read_only_fields = ['processed', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
     
     def create(self, validated_data):
         # Set the user to the current user

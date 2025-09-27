@@ -56,12 +56,21 @@ class DocumentViewSet(viewsets.ModelViewSet):
         """
         Override to track document processing
         """
+        # Get the current state before update
         old_processed = self.get_object().processed
+        
+        # Save the document with new data
         document = serializer.save()
         
-        # If document was just processed (changed from False to True)
+        # Check if processed status changed from False to True
         if not old_processed and document.processed:
+            # Increment the documents processed counter
             UserStatsService.increment_documents_processed(self.request.user)
+            print(f"✅ Document {document.id} marked as processed for user {self.request.user.id}")
+        elif old_processed and not document.processed:
+            print(f"⚠️ Document {document.id} marked as unprocessed for user {self.request.user.id}")
+        else:
+            print(f"ℹ️ Document {document.id} processed status unchanged: {document.processed}")
     
     @action(detail=True, methods=['get'])
     def scans(self, request, pk=None):
